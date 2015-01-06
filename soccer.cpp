@@ -18,7 +18,7 @@ int detectGreen(Mat x);
 bool cameraCut(Mat i1, Mat i2);
 bool t(int, int, int);
 
-int main(int, char**)
+int main(int, char** argv)
 {
   VideoCapture cap("match1.mp4"); // open the default camera
   if(!cap.isOpened())  // check if we succeeded
@@ -31,7 +31,7 @@ int main(int, char**)
   Mat oldImage;
   bool frameOK = false;
   int combo = 0;
-
+  int frameNumber = 0;
   for(;;)
   {
     if(!pause)
@@ -39,7 +39,13 @@ int main(int, char**)
       Mat frame;
       cap >> frame; // get a new frame from camera
       Mat original = frame.clone();
- 
+
+      stringstream ss;
+      ss << "images/i";
+      ss << frameNumber++;
+      ss << ".png";
+       
+      imwrite(ss.str(), original);
       imshow("original", original);
       drawImage = false;
 
@@ -52,8 +58,7 @@ int main(int, char**)
         frameOK = false;
       }
 
-      if(!frameOK)
-      {
+      if(!frameOK){
         combo++;
       }
 
