@@ -15,9 +15,11 @@ using namespace cv;
 using namespace std;
 
 int detectGreen(Mat x);
-bool cameraCut(Mat i1, Mat i2);
+int cameraCut(Mat i1, Mat i2);
 bool t(int, int, int);
-
+bool isSteady(int*);
+const int W = 15;
+int window[15] = {0};
 int main(int, char** argv)
 {
   VideoCapture cap("match1.mp4"); // open the default camera
@@ -29,9 +31,11 @@ int main(int, char** argv)
   bool pause = false;
   bool drawImage = true;
   Mat oldImage;
+  Mat oldEdgeImage;
   bool frameOK = false;
   int combo = 0;
   int frameNumber = 0;
+  int oldOverlapping;
   for(;;)
   {
     if(!pause)
@@ -45,36 +49,32 @@ int main(int, char** argv)
       ss << frameNumber++;
       ss << ".png";
        
-      imwrite(ss.str(), original);
+      //imwrite(ss.str(), original);
       imshow("original", original);
-      drawImage = false;
 
       bool enoughGreen = detectGreen(original) > 120000;
-      if(enoughGreen){
-        drawImage = true;
-      }
-
-      if(cameraCut(original, oldImage)){
-        frameOK = false;
-      }
-
-      if(!frameOK){
-        combo++;
-      }
-
-      if(combo == 100){
-        frameOK = true;
-        combo = 0;
-      }
 
       cvtColor(frame, edges, CV_BGR2GRAY);
       GaussianBlur(edges, edges, Size(7,7), 2, 2);
       Canny(edges, edges, 0, 30, 3);
-      if(drawImage)
-      {
-        imshow("edges", edges);
+
+      int overlapping = cameraCut(edges, oldEdgeImage);
+      int average = 0;
+      
+      int drawImage = false;
+      if(!t(overlapping, oldOverlapping, 700)){
+        printf("cut %d\n", frameNumber);
       }
+
+      oldOverlapping = overlapping;
+
+      isSteady(window);
+ 
+      if(drawImage){
+      }
+
       oldImage = frame;
+      oldEdgeImage = edges;
     }
         
     int key = waitKey(1);
@@ -84,6 +84,16 @@ int main(int, char** argv)
 
   // the camera will be deinitialized automatically in VideoCapture destructor
   return 0;
+}
+
+bool isSteady(int* window){
+  int total = 0;
+  for(int i = 1; i < W; i++){
+    total += (window[i] - window[i-1]);
+    //printf(" %d\n", window[i]);
+  }
+  //printf("%d\n", total);
+  return total;
 }
 
 int detectGreen(Mat img)
@@ -114,7 +124,6 @@ int detectGreen(Mat img)
   }
   cv::erode(img, img, cv::Mat(), cv::Point(-1,-1));
   cv::erode(img, img, cv::Mat(), cv::Point(-1,-1));
-  cv::erode(img, img, cv::Mat(), cv::Point(-1,-1));
 
   for(int i=0; i<img.cols; i++){
     for(int j=0; j<img.rows; j++){
@@ -124,60 +133,42 @@ int detectGreen(Mat img)
     }
   }
 
-  imshow("binary", img);
-  printf("green: %d\n", greenTot);
-
   return greenTot;
 }
 
 bool t(int n, int m, int allowance) {
-  return n < m + allowance && n > m - allowance; 
+  return n < m * 1.1 && n > m * 0.9; 
 }
 
 
-bool cameraCut(Mat i1, Mat i2)
+int cameraCut(Mat i1, Mat i2)
 {
   if(!i2.size().width || !i1.size().width)
   {
     return false;
   }
     
-  //imshow("old", i2);
-  //imshow("main", i1);
-    
-  Mat hsv_i1;
-  Mat hsv_i2;
+  const int R = 5;
 
-  cvtColor(i1, hsv_i1, CV_BGR2HSV);
-  cvtColor(i2, hsv_i2, CV_BGR2HSV);
-    
-  // Using 50 bins for hue and 60 for saturation
-  int h_bins = 50; int s_bins = 60;
-  int histSize[] = { h_bins, s_bins };
+  int confidence = 0;
+  
+  cv::dilate(i1, i1, cv::Mat(), cv::Point(-1,-1));
+  cv::erode(i1, i1, cv::Mat(), cv::Point(-1,-1));
+  imshow("edges", i1);
 
-  // hue varies from 0 to 179, saturation from 0 to 255
-  float h_ranges[] = { 0, 180 };
-  float s_ranges[] = { 0, 256 };
+  for(int i=R; i<i1.cols-R; i++){
+    for(int j=R; j<i1.rows-R; j++){
+      Vec3b pixel1 = i1.at<Vec3b>(Point(i,j));
+      Vec3b pixel2 = i2.at<Vec3b>(Point(i,j)); 
+      
+      if(pixel1[0] > 0 && pixel2[0] > 0)
+      {
+          confidence++;
+      }
+    }
+  }
 
-  const float* ranges[] = { h_ranges, s_ranges };
+  //printf("%d\n", confidence);
 
-  // Use the o-th and 1-st channels
-  int channels[] = { 0, 1 };
-
-  /// Histograms
-  MatND hist_i1;
-  MatND hist_i2;
-    
-  /// Calculate the histograms for the HSV images
-  calcHist( &hsv_i1, 1, channels, Mat(), hist_i1, 2, histSize, ranges, true, false );
-  normalize( hist_i1, hist_i1, 0, 1, NORM_MINMAX, -1, Mat() );
-
-  calcHist( &hsv_i2, 1, channels, Mat(), hist_i2, 2, histSize, ranges, true, false );
-  normalize( hist_i2, hist_i2, 0, 1, NORM_MINMAX, -1, Mat() );
-
-  /// Apply the histogram comparison methods
-  int compare_method = 0;
-  double i1_i2 = compareHist(hist_i1, hist_i2, compare_method);
-
-  return i1_i2 < 0.94;
+  return confidence;
 }
