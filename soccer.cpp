@@ -14,8 +14,11 @@
 using namespace cv;
 using namespace std;
 
-int detectGreen(Mat x);
+Mat binaryRG(Mat x);
+int isGreen(Mat i1);
+int greenFramesSinceLastChange = 0;
 int cameraCut(Mat i1, Mat i2);
+int compareGreen(Mat i1, Mat i2);
 bool t(int, int, int);
 bool isSteady(int*);
 const int W = 15;
@@ -36,54 +39,113 @@ int main(int, char** argv)
   int combo = 0;
   int frameNumber = 0;
   int oldOverlapping;
+
+  int framesThrough = 0;
+  int scene = 0;
+  int compare;
+
+  int minLength = 10;
+  Mat oldBinaryRGImg;
+  int framesSinceLastChange = 0;
+
   for(;;)
   {
     if(!pause)
     {
       Mat frame;
       cap >> frame; // get a new frame from camera
+      frameNumber++;
       Mat original = frame.clone();
 
       stringstream ss;
-      ss << "images/i";
-      ss << frameNumber++;
+      ss << "images/";
+      if (scene < 10)
+        ss << "0";
+      if (scene < 100)
+        ss << "0";
+      ss << scene;
+      ss << "_";
+      if (framesSinceLastChange < 10)
+        ss << "0";
+      if (framesSinceLastChange < 100)
+        ss << "0";
+      ss << framesSinceLastChange;
       ss << ".png";
-       
-      //imwrite(ss.str(), original);
+
+      imwrite(ss.str(), original);
+      cout << ss.str() << endl;
       imshow("original", original);
 
-      bool enoughGreen = detectGreen(original) > 120000;
+      Mat binaryRGImg = binaryRG(original);
+      imshow("green", binaryRGImg);
 
       cvtColor(frame, edges, CV_BGR2GRAY);
       GaussianBlur(edges, edges, Size(7,7), 2, 2);
-      Canny(edges, edges, 0, 30, 3);
+      Canny(edges, edges, 0, 60, 3);
+      framesSinceLastChange++;
+      greenFramesSinceLastChange += isGreen(binaryRGImg);
 
-      int overlapping = cameraCut(edges, oldEdgeImage);
-      int average = 0;
-      
-      int drawImage = false;
-      if(!t(overlapping, oldOverlapping, 700)){
-        printf("cut %d\n", frameNumber);
+      if(frameNumber % 4 == 0){
+        compare = compareGreen(binaryRGImg, oldBinaryRGImg);
+
+        if(compare < 200000){
+          float percentGreen = (float)greenFramesSinceLastChange / (float)framesSinceLastChange;
+          percentGreen *= 100;
+          //printf("framesSinceLastChange: %f\n", (float)framesSinceLastChange);
+          //printf("greenSinceLastChange: %f\n", (float)greenFramesSinceLastChange);
+          //printf("percent: %f\n", percentGreen);
+
+          if(framesSinceLastChange >= 80 && percentGreen > 70){
+            scene++;
+          }
+          framesSinceLastChange = 0;
+          greenFramesSinceLastChange = 0;
+        }
+
+        oldBinaryRGImg = binaryRGImg;
+        oldImage = frame;
+        oldEdgeImage = edges;
       }
-
-      oldOverlapping = overlapping;
-
-      isSteady(window);
- 
-      if(drawImage){
-      }
-
-      oldImage = frame;
-      oldEdgeImage = edges;
     }
         
     int key = waitKey(1);
-    if(key == 1048625) break;
-      if(key == 1048608) pause = !pause;
+    if(key == 27) break;
+    if(key == 32) pause = !pause;
   }
 
   // the camera will be deinitialized automatically in VideoCapture destructor
   return 0;
+}
+
+int isGreen(Mat i1){
+  float points = 0;
+  float total = 0;
+
+
+  for(int i=0; i<i1.cols; i++){
+    for(int j=0; j<i1.rows; j++){
+      if(i1.at<Vec3b>(Point(i,j))[GREEN] > 0){
+        points++;
+      }
+      total++;
+    }
+  }
+
+  return points > (total / 2);
+}
+
+int compareGreen(Mat i1, Mat i2){
+  int points = 0;
+
+  for(int i=0; i<i1.cols; i++){
+    for(int j=0; j<i2.rows; j++){
+      if(i1.at<Vec3b>(Point(i,j))[GREEN] == i2.at<Vec3b>(Point(i,j))[GREEN]){
+        points++;
+      }
+    }
+  }
+
+  return points;
 }
 
 bool isSteady(int* window){
@@ -96,11 +158,11 @@ bool isSteady(int* window){
   return total;
 }
 
-int detectGreen(Mat img)
+Mat binaryRG(Mat img)
 {
   if(img.size().width == 0)
   {
-    return false;
+    return img.clone();
   }
   
   int greenTot = 0;
@@ -122,22 +184,15 @@ int detectGreen(Mat img)
       img.at<Vec3b>(Point(i,j)) = color;
     }
   }
-  cv::erode(img, img, cv::Mat(), cv::Point(-1,-1));
-  cv::erode(img, img, cv::Mat(), cv::Point(-1,-1));
+  // cv::erode(img, img, cv::Mat(), cv::Point(-1,-1));
+  cv::dilate(img, img, cv::Mat(), cv::Point(-1,-1));
 
-  for(int i=0; i<img.cols; i++){
-    for(int j=0; j<img.rows; j++){
-      if(img.at<Vec3b>(Point(i,j))[GREEN]){
-        greenTot++;
-      }
-    }
-  }
 
-  return greenTot;
+  return img;
 }
 
 bool t(int n, int m, int allowance) {
-  return n < m * 1.1 && n > m * 0.9; 
+  return n < m * 1.2 && n > m * 0.8; 
 }
 
 
@@ -152,8 +207,6 @@ int cameraCut(Mat i1, Mat i2)
 
   int confidence = 0;
   
-  cv::dilate(i1, i1, cv::Mat(), cv::Point(-1,-1));
-  cv::erode(i1, i1, cv::Mat(), cv::Point(-1,-1));
   imshow("edges", i1);
 
   for(int i=R; i<i1.cols-R; i++){
