@@ -19,9 +19,16 @@ int isGreen(Mat i1);
 int greenFramesSinceLastChange = 0;
 int compareGreen(Mat i1, Mat i2);
 
+bool debug = false;
 
 int main(int, char** argv)
 {
+  if(debug)
+    namedWindow("original");
+  
+  if(strcmp(argv[1], "debug") == 0)
+    debug = true;
+
   VideoCapture cap("match1.mp4"); // change to argv
   if(!cap.isOpened())
     return -1;
@@ -40,37 +47,44 @@ int main(int, char** argv)
     cap >> frame; // get a new frame from camera
     frameNumber++;
     Mat original = frame.clone();
-  
-    imshow("original", original);
+ 
+    if(debug)
+      imshow("original", frame);
 
     Mat binaryRGImg = binaryRG(original);
-    imshow("green", binaryRGImg);
+    //imshow("green", binaryRGImg);
 
+    // Always presume that the scene will be good, until the test later
     // increment scene length counter
     framesSinceLastChange++;
     // increment scene green
     greenFramesSinceLastChange += isGreen(binaryRGImg);
 
-    if(frameNumber % 4 == 0){
-      greenDifference = compareGreen(binaryRGImg, oldBinaryRGImg);
+    // if the amount of shared green between two consecutive frames dips,
+    // then we assume that the camera is now looking at a different scene
+    bool cameraCut = compareGreen(binaryRGImg, oldBinaryRGImg) < 200000;
 
-      if(greenDifference < 200000){
-        float percentGreen = (float)greenFramesSinceLastChange / (float)framesSinceLastChange;
-        percentGreen *= 100;
-        //printf("framesSinceLastChange: %f\n", (float)framesSinceLastChange);
-        //printf("greenSinceLastChange: %f\n", (float)greenFramesSinceLastChange);
-        //printf("percent: %f\n", percentGreen);
-
-        if(framesSinceLastChange >= 80 && percentGreen > 70){
-          printf("%d\n%d\n", frameNumber - framesSinceLastChange, frameNumber);
-        }
-        framesSinceLastChange = 0;
-        greenFramesSinceLastChange = 0;
+    if(cameraCut){
+      float percentGreen = 
+            ((float)greenFramesSinceLastChange / (float)framesSinceLastChange) * 100;
+     
+      if(debug){ 
+        fprintf(stderr,"frames since last change: %f\n", (float)framesSinceLastChange);
+        fprintf(stderr,"green since last change: %f\n", (float)greenFramesSinceLastChange);
+        fprintf(stderr,"percent green: %f\n", percentGreen);
       }
 
-      oldBinaryRGImg = binaryRGImg;
-      oldImage = frame;
+      if(framesSinceLastChange >= 80 && percentGreen > 70){
+        printf("%d\n%d\n", frameNumber - framesSinceLastChange, frameNumber);
+      }
+      framesSinceLastChange = 0;
+      greenFramesSinceLastChange = 0;
     }
+
+    oldBinaryRGImg = binaryRGImg;
+    oldImage = frame;
+
+    waitKey(1);
   }
 
   // the camera will be deinitialized automatically in VideoCapture destructor
