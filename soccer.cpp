@@ -46,44 +46,47 @@ int main(int, char** argv)
     Mat frame;
     cap >> frame; // get a new frame from camera
     frameNumber++;
-    Mat original = frame.clone();
  
-    if(debug)
-      imshow("original", frame);
+      if(debug)
+        imshow("original", frame);
 
-    Mat binaryRGImg = binaryRG(original);
-    //imshow("green", binaryRGImg);
+      Mat binaryRGImg = binaryRG(frame);
+      //imshow("green", binaryRGImg);
 
-    // Always presume that the scene will be good, until the test later
-    // increment scene length counter
-    framesSinceLastChange++;
-    // increment scene green
-    greenFramesSinceLastChange += isGreen(binaryRGImg);
+      // Always presume that the scene will be good, until the test later
+      // increment scene length counter
+      framesSinceLastChange++;
+      // increment scene green
+      greenFramesSinceLastChange += isGreen(binaryRGImg);
 
-    // if the amount of shared green between two consecutive frames dips,
-    // then we assume that the camera is now looking at a different scene
-    bool cameraCut = compareGreen(binaryRGImg, oldBinaryRGImg) < 200000;
+    if(frameNumber > 4000)
+      return 0;
 
-    if(cameraCut){
-      float percentGreen = 
-            ((float)greenFramesSinceLastChange / (float)framesSinceLastChange) * 100;
-     
-      if(debug){ 
-        fprintf(stderr,"frames since last change: %f\n", (float)framesSinceLastChange);
-        fprintf(stderr,"green since last change: %f\n", (float)greenFramesSinceLastChange);
-        fprintf(stderr,"percent green: %f\n", percentGreen);
+    if(frameNumber % 10 == 0){
+      // if the amount of shared green between two consecutive frames dips,
+      // then we assume that the camera is now looking at a different scene
+      bool cameraCut = compareGreen(binaryRGImg, oldBinaryRGImg) < 200000;
+
+      if(cameraCut){
+        float percentGreen = 
+              ((float)greenFramesSinceLastChange / (float)framesSinceLastChange) * 100;
+       
+        if(debug){ 
+          fprintf(stderr,"frames since last change: %f\n", (float)framesSinceLastChange);
+          fprintf(stderr,"green since last change: %f\n", (float)greenFramesSinceLastChange);
+          fprintf(stderr,"percent green: %f\n", percentGreen);
+        }
+
+        if(framesSinceLastChange >= 100 && percentGreen > 70){
+          printf("%d\n%d\n", frameNumber - framesSinceLastChange + 5, frameNumber - 5);
+        }
+        framesSinceLastChange = 0;
+        greenFramesSinceLastChange = 0;
       }
 
-      if(framesSinceLastChange >= 80 && percentGreen > 70){
-        printf("%d\n%d\n", frameNumber - framesSinceLastChange, frameNumber);
-      }
-      framesSinceLastChange = 0;
-      greenFramesSinceLastChange = 0;
+      oldBinaryRGImg = binaryRGImg;
+      oldImage = frame;
     }
-
-    oldBinaryRGImg = binaryRGImg;
-    oldImage = frame;
-
     waitKey(1);
   }
 
