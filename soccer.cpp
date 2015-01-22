@@ -29,6 +29,10 @@ int main(int, char** argv)
   if(!cap.isOpened())  // check if we succeeded
     return -1;
 
+  int frameW = cap.get(CV_CAP_PROP_FRAME_WIDTH);
+  int frameH = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
+  VideoWriter video("out.avi",CV_FOURCC('M','J','P','G'),10, Size(frameW,frameH),true);
+  
   Mat edges;
   namedWindow("edges",1);
   bool pause = false;
@@ -56,24 +60,8 @@ int main(int, char** argv)
       cap >> frame; // get a new frame from camera
       frameNumber++;
       Mat original = frame.clone();
+      
 
-      stringstream ss;
-      ss << "images/";
-      if (scene < 10)
-        ss << "0";
-      if (scene < 100)
-        ss << "0";
-      ss << scene;
-      ss << "_";
-      if (framesSinceLastChange < 10)
-        ss << "0";
-      if (framesSinceLastChange < 100)
-        ss << "0";
-      ss << framesSinceLastChange;
-      ss << ".png";
-
-      imwrite(ss.str(), original);
-      cout << ss.str() << endl;
       imshow("original", original);
 
       Mat binaryRGImg = binaryRG(original);
@@ -108,6 +96,9 @@ int main(int, char** argv)
       }
     }
         
+    cvtColor(edges, edges, CV_GRAY2BGR);
+    video.write(edges);
+
     int key = waitKey(1);
     if(key == 27) break;
     if(key == 32) pause = !pause;
