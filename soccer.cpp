@@ -17,91 +17,60 @@ using namespace std;
 Mat binaryRG(Mat x);
 int isGreen(Mat i1);
 int greenFramesSinceLastChange = 0;
-int cameraCut(Mat i1, Mat i2);
 int compareGreen(Mat i1, Mat i2);
-bool t(int, int, int);
-bool isSteady(int*);
-const int W = 15;
-int window[15] = {0};
+
+
 int main(int, char** argv)
 {
-  VideoCapture cap("match1.mp4"); // open the default camera
-  if(!cap.isOpened())  // check if we succeeded
+  VideoCapture cap("match1.mp4"); // change to argv
+  if(!cap.isOpened())
     return -1;
 
-  int frameW = cap.get(CV_CAP_PROP_FRAME_WIDTH);
-  int frameH = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
-  VideoWriter video("out.avi",CV_FOURCC('M','J','P','G'),10, Size(frameW,frameH),true);
-  
-  Mat edges;
-  namedWindow("edges",1);
-  bool pause = false;
-  bool drawImage = true;
   Mat oldImage;
-  Mat oldEdgeImage;
-  bool frameOK = false;
-  int combo = 0;
-  int frameNumber = 0;
-  int oldOverlapping;
-
-  int framesThrough = 0;
-  int scene = 0;
-  int compare;
-
-  int minLength = 10;
   Mat oldBinaryRGImg;
+  
+  int frameNumber = 0;
+  int greenDifference;
   int framesSinceLastChange = 0;
 
-  for(;;)
+  // 101 will remain constant until the next epoch, which will be in 2038
+  while(101 == 101)
   {
-    if(!pause)
-    {
-      Mat frame;
-      cap >> frame; // get a new frame from camera
-      frameNumber++;
-      Mat original = frame.clone();
-      
+    Mat frame;
+    cap >> frame; // get a new frame from camera
+    frameNumber++;
+    Mat original = frame.clone();
+  
+    imshow("original", original);
 
-      imshow("original", original);
+    Mat binaryRGImg = binaryRG(original);
+    imshow("green", binaryRGImg);
 
-      Mat binaryRGImg = binaryRG(original);
-      imshow("green", binaryRGImg);
+    // increment scene length counter
+    framesSinceLastChange++;
+    // increment scene green
+    greenFramesSinceLastChange += isGreen(binaryRGImg);
 
-      cvtColor(frame, edges, CV_BGR2GRAY);
-      GaussianBlur(edges, edges, Size(7,7), 2, 2);
-      Canny(edges, edges, 0, 60, 3);
-      framesSinceLastChange++;
-      greenFramesSinceLastChange += isGreen(binaryRGImg);
+    if(frameNumber % 4 == 0){
+      greenDifference = compareGreen(binaryRGImg, oldBinaryRGImg);
 
-      if(frameNumber % 4 == 0){
-        compare = compareGreen(binaryRGImg, oldBinaryRGImg);
+      if(greenDifference < 200000){
+        float percentGreen = (float)greenFramesSinceLastChange / (float)framesSinceLastChange;
+        percentGreen *= 100;
+        //printf("framesSinceLastChange: %f\n", (float)framesSinceLastChange);
+        //printf("greenSinceLastChange: %f\n", (float)greenFramesSinceLastChange);
+        //printf("percent: %f\n", percentGreen);
 
-        if(compare < 200000){
-          float percentGreen = (float)greenFramesSinceLastChange / (float)framesSinceLastChange;
-          percentGreen *= 100;
-          //printf("framesSinceLastChange: %f\n", (float)framesSinceLastChange);
-          //printf("greenSinceLastChange: %f\n", (float)greenFramesSinceLastChange);
-          //printf("percent: %f\n", percentGreen);
-
-          if(framesSinceLastChange >= 80 && percentGreen > 70){
-            scene++;
-          }
-          framesSinceLastChange = 0;
-          greenFramesSinceLastChange = 0;
+        if(framesSinceLastChange >= 80 && percentGreen > 70){
+          printf("%d\n%d\n", frameNumber - framesSinceLastChange, frameNumber);
         }
-
-        oldBinaryRGImg = binaryRGImg;
-        oldImage = frame;
-        oldEdgeImage = edges;
+        framesSinceLastChange = 0;
+        greenFramesSinceLastChange = 0;
       }
-    }
-        
-    cvtColor(edges, edges, CV_GRAY2BGR);
-    video.write(edges);
 
-    int key = waitKey(1);
-    if(key == 27) break;
-    if(key == 32) pause = !pause;
+      oldBinaryRGImg = binaryRGImg;
+      oldImage = frame;
+    }
   }
 
   // the camera will be deinitialized automatically in VideoCapture destructor
@@ -139,16 +108,6 @@ int compareGreen(Mat i1, Mat i2){
   return points;
 }
 
-bool isSteady(int* window){
-  int total = 0;
-  for(int i = 1; i < W; i++){
-    total += (window[i] - window[i-1]);
-    //printf(" %d\n", window[i]);
-  }
-  //printf("%d\n", total);
-  return total;
-}
-
 Mat binaryRG(Mat img)
 {
   if(img.size().width == 0)
@@ -180,39 +139,4 @@ Mat binaryRG(Mat img)
 
 
   return img;
-}
-
-bool t(int n, int m, int allowance) {
-  return n < m * 1.2 && n > m * 0.8; 
-}
-
-
-int cameraCut(Mat i1, Mat i2)
-{
-  if(!i2.size().width || !i1.size().width)
-  {
-    return false;
-  }
-    
-  const int R = 5;
-
-  int confidence = 0;
-  
-  imshow("edges", i1);
-
-  for(int i=R; i<i1.cols-R; i++){
-    for(int j=R; j<i1.rows-R; j++){
-      Vec3b pixel1 = i1.at<Vec3b>(Point(i,j));
-      Vec3b pixel2 = i2.at<Vec3b>(Point(i,j)); 
-      
-      if(pixel1[0] > 0 && pixel2[0] > 0)
-      {
-          confidence++;
-      }
-    }
-  }
-
-  //printf("%d\n", confidence);
-
-  return confidence;
 }
