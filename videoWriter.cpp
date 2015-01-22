@@ -59,7 +59,7 @@ int main(int, char** argv)
       cvtColor(frame, edges, CV_BGR2GRAY);
       GaussianBlur(edges, edges, Size(7,7), 2, 2);
       Canny(edges, edges, 0, 60, 3);
-     
+    
       cvtColor(edges, edges, CV_GRAY2BGR);
       video.write(edges); 
     }else if(frames[i+1] == frameNumber){

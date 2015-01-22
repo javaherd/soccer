@@ -39,6 +39,7 @@ int main(int, char** argv)
   int frameNumber = 0;
   int greenDifference;
   int framesSinceLastChange = 0;
+  int framesWritten = 0;
 
   // 101 will remain constant until the next epoch, which will be in 2038
   while(101 == 101)
@@ -47,19 +48,18 @@ int main(int, char** argv)
     cap >> frame; // get a new frame from camera
     frameNumber++;
  
-      if(debug)
-        imshow("original", frame);
+    if(debug)
+      imshow("original", frame);
 
-      Mat binaryRGImg = binaryRG(frame);
-      //imshow("green", binaryRGImg);
+    Mat binaryRGImg = binaryRG(frame);
 
-      // Always presume that the scene will be good, until the test later
-      // increment scene length counter
-      framesSinceLastChange++;
-      // increment scene green
-      greenFramesSinceLastChange += isGreen(binaryRGImg);
+    // Always presume that the scene will be good, until the test later
+    // increment scene length counter
+    framesSinceLastChange++;
+    // increment scene green
+    greenFramesSinceLastChange += isGreen(binaryRGImg);
 
-    if(frameNumber > 4000)
+    if(framesWritten > 24 * 60)
       return 0;
 
     if(frameNumber % 10 == 0){
@@ -79,6 +79,7 @@ int main(int, char** argv)
 
         if(framesSinceLastChange >= 100 && percentGreen > 70){
           printf("%d\n%d\n", frameNumber - framesSinceLastChange + 5, frameNumber - 5);
+          framesWritten += framesSinceLastChange;
         }
         framesSinceLastChange = 0;
         greenFramesSinceLastChange = 0;
