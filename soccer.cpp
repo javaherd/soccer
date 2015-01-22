@@ -26,10 +26,10 @@ int main(int, char** argv)
   if(debug)
     namedWindow("original");
   
-  if(strcmp(argv[1], "debug") == 0)
+  if(argv[2] != NULL && strcmp(argv[2], "debug") == 0)
     debug = true;
 
-  VideoCapture cap("match1.mp4"); // change to argv
+  VideoCapture cap(argv[1]);
   if(!cap.isOpened())
     return -1;
 
@@ -77,7 +77,7 @@ int main(int, char** argv)
           fprintf(stderr,"percent green: %f\n", percentGreen);
         }
 
-        if(framesSinceLastChange >= 100 && percentGreen > 70){
+        if(framesSinceLastChange >= 100 && percentGreen > 80){
           printf("%d\n%d\n", frameNumber - framesSinceLastChange + 5, frameNumber - 5);
           framesWritten += framesSinceLastChange;
         }

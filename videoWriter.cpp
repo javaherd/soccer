@@ -11,7 +11,7 @@ using namespace std;
 
 int main(int, char** argv)
 {
-  VideoCapture cap("match1.mp4"); // change to argv
+  VideoCapture cap(argv[1]);
 
   if(!cap.isOpened())
     return -1;
