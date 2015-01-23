@@ -18,7 +18,7 @@ int main(int, char** argv)
 
   int frameW = cap.get(CV_CAP_PROP_FRAME_WIDTH);
   int frameH = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
-  VideoWriter video("out.avi"/*argv[2]*/, CV_FOURCC('M','J','P','G'), 24, Size(frameW,frameH), true);
+  VideoWriter video(argv[2], CV_FOURCC('M','J','P','G'), 24, Size(frameW,frameH), true);
   
   int frameNumber = 0;
 

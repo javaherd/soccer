@@ -59,7 +59,7 @@ int main(int, char** argv)
     // increment scene green
     greenFramesSinceLastChange += isGreen(binaryRGImg);
 
-    if(framesWritten > 24 * 60)
+    if(frameNumber > 5000)
       return 0;
 
     if(frameNumber % 10 == 0){
@@ -77,7 +77,7 @@ int main(int, char** argv)
           fprintf(stderr,"percent green: %f\n", percentGreen);
         }
 
-        if(framesSinceLastChange >= 100 && percentGreen > 80){
+        if(framesSinceLastChange >= 100){// && percentGreen > 80){
           printf("%d\n%d\n", frameNumber - framesSinceLastChange + 5, frameNumber - 5);
           framesWritten += framesSinceLastChange;
         }
