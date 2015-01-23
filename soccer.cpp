@@ -41,6 +41,8 @@ int main(int, char** argv)
   int framesSinceLastChange = 0;
   int framesWritten = 0;
 
+  int oldGreen = 0;
+
   // 101 will remain constant until the next epoch, which will be in 2038
   while(101 == 101)
   {
@@ -50,8 +52,11 @@ int main(int, char** argv)
  
     if(debug)
       imshow("original", frame);
-
+    
     Mat binaryRGImg = binaryRG(frame);
+    
+    if(debug)
+      imshow("binaryRG", binaryRGImg);
 
     // Always presume that the scene will be good, until the test later
     // increment scene length counter
@@ -62,11 +67,14 @@ int main(int, char** argv)
     if(frameNumber > 5000)
       return 0;
 
-    if(frameNumber % 10 == 0){
+    if(frameNumber % 5 == 0){
       // if the amount of shared green between two consecutive frames dips,
       // then we assume that the camera is now looking at a different scene
-      bool cameraCut = compareGreen(binaryRGImg, oldBinaryRGImg) < 200000;
+      int green = compareGreen(binaryRGImg, oldBinaryRGImg);
+      bool cameraCut = green < (oldGreen - 3000);
 
+      oldGreen = green;
+      
       if(cameraCut){
         float percentGreen = 
               ((float)greenFramesSinceLastChange / (float)framesSinceLastChange) * 100;
@@ -77,7 +85,7 @@ int main(int, char** argv)
           fprintf(stderr,"percent green: %f\n", percentGreen);
         }
 
-        if(framesSinceLastChange >= 100){// && percentGreen > 80){
+        if(framesSinceLastChange >= 100 && percentGreen > 70){
           printf("%d\n%d\n", frameNumber - framesSinceLastChange + 5, frameNumber - 5);
           framesWritten += framesSinceLastChange;
         }
